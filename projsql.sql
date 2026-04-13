@@ -44,3 +44,7 @@ SELECT ROW_NUMBER() OVER(PARTITION BY seller_state ORDER BY SUM(payment_value) D
 FROM olist_sellers_dataset INNER JOIN olist_order_items_dataset ON olist_sellers_dataset.seller_id = olist_order_items_dataset.seller_id 
 INNER JOIN olist_order_payments_dataset ON olist_order_items_dataset.order_id = olist_order_payments_dataset.order_id GROUP BY olist_order_items_dataset.seller_id , seller_state 
 ORDER BY seller_state;
+SELECT seller_id, STRFTIME("%m", order_approved_at) AS month, COUNT(olist_orders_dataset.order_id) as order_count, 
+AVG(SUM(payment_value)) OVER(PARTITION BY seller_id ORDER BY STRFTIME("%m", order_approved_at) ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS moving_avg_3m 
+FROM olist_orders_dataset INNER JOIN olist_order_items_dataset ON olist_orders_dataset.order_id = olist_order_items_dataset.order_id
+INNER JOIN olist_order_payments_dataset ON olist_orders_dataset.order_id = olist_order_payments_dataset.order_id GROUP BY seller_id, month ORDER BY month
