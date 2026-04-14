@@ -73,7 +73,7 @@ result = total_ds.select(
 """
 
 """
---быстрешие доставки (исключена аномалия с отрицательным временем доставки)
+--быстрейшие доставки (исключена аномалия с отрицательным временем доставки)
 orders_ds = pl.read_csv('olist_orders_dataset.csv', try_parse_dates=True)
 customers_ds = pl.read_csv("olist_customers_dataset.csv", try_parse_dates=True)
 order_items_ds = pl.read_csv('olist_order_items_dataset.csv', try_parse_dates=True)
@@ -89,4 +89,31 @@ result = (total_ds.select(
     pl.col("order_delivered_customer_date")
 ).filter(pl.col("order_status") == "delivered", pl.col("order_approved_at").is_not_null(),
          pl.col("order_delivered_customer_date").is_not_null(), pl.col("det")>0).sort("det").limit(10))
+"""
+"""
+--группы товаров которые ни разу не оплачивались картой
+products_ds = pl.read_csv("olist_products_dataset.csv", try_parse_dates = True)
+order_items_ds = pl.read_csv("olist_order_items_dataset.csv", try_parse_dates = True)
+order_payments_ds = pl.read_csv("olist_order_payments_dataset.csv", try_parse_dates=True)
+total_ds = products_ds.join(order_items_ds, on = "product_id").join(order_payments_ds, on = "order_id")
+
+result = total_ds.select(
+    pl.col("product_category_name"),
+    pl.col("order_id"),
+    pl.col("payment_type")
+).group_by(pl.col("product_category_name")).agg((pl.col("payment_type") == "credit card").sum().alias("card_pay_count")).filter(
+    pl.col("card_pay_count") == 0
+)
+"""
+"""
+--Среднее значение платежа по штатам (оконной функцией)
+sellers_ds = pl.read_csv("olist_sellers_dataset.csv", try_parse_dates=True)
+order_items_ds = pl.read_csv("olist_order_items_dataset.csv", try_parse_dates=True)
+order_payments_ds = pl.read_csv("olist_order_payments_dataset.csv", try_parse_dates=True)
+total_ds = sellers_ds.join(order_items_ds, on = "seller_id").join(order_payments_ds, on = "order_id")
+result = total_ds.select(
+    pl.col("seller_state"),
+    pl.col("payment_value").mean().over(pl.col("seller_state"))
+).unique()
+print(result)
 """
