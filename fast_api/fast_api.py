@@ -3,7 +3,7 @@ from pydantic import BaseModel
 import joblib
 
 
-review_model = joblib.load("review_model.pkl")
+review_model = joblib.load("fast_api/review_model.pkl")
 
 class PredictValue(BaseModel):
     price: float
