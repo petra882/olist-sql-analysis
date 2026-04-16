@@ -66,6 +66,18 @@
 ### Топ-10 категорий по выручке
 ![top_categories](plots/best_category_in_sell.png)
 
+## ML-сервис
+
+Построена модель классификации `review_score` (LogisticRegression).
+
+**Признаки:**
+- `price`
+- `freight_value`
+- `payment_value`
+
+**API:** FastAPI
+- `POST /predict` — принимает JSON с признаками, возвращает предсказанную оценку (1-5)
+
 ---
 ```text
 olist-sql-analysis/
