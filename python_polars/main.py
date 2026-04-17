@@ -1,5 +1,16 @@
+from statistics import linear_regression, LinearRegression
+
+import matplotlib.pyplot as plt
 import polars as pl
 import datetime as dt
+import seaborn as sns
+import numpy as np
+from rich.console import group
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
 
 """
 Olist Brazilian E-Commerce: Polars Analysis
@@ -7,28 +18,6 @@ Olist Brazilian E-Commerce: Polars Analysis
 Перенос SQL-запросов из projsql.sql на Polars.
 Автор: Артеменко Пётр
 Дата: 13.04.2026
-"""
-
-
-"""
--- Помесячная динамика заказов:
-orders_dataset = pl.read_csv('olist_orders_dataset.csv', try_parse_dates=True)
-
-result = orders_dataset.select(
-    pl.col("order_purchase_timestamp").dt.month().alias("month"),
-    pl.col("order_id").alias("count")
-).group_by("month").agg(pl.col("count").count()).sort("month")
-"""
-
-"""
--- Топ-10 категорий по объему продаж
-products_ds = pl.read_csv('olist_products_dataset.csv', try_parse_dates=True)
-order_items_ds = pl.read_csv('olist_order_items_dataset.csv', try_parse_dates=True)
-total_ds = products_ds.join(order_items_ds, on='product_id')
-result = total_ds.select(
-    pl.col("product_category_name"),
-    pl.col("price"),
-).group_by("product_category_name").agg(pl.col("price").alias("avenue").sum()).sort("avenue", descending=True).limit(10)
 """
 
 """
@@ -40,9 +29,8 @@ total_ds = customers_ds.join(orders_ds, on='customer_id').join(order_review_ds, 
 result = (total_ds.select(
     pl.col("customer_city"),
     pl.col("review_score")
-).
-          filter(pl.col("review_score") == 5).group_by("customer_city").agg(pl.col("customer_city").count().alias("count_5")).
-          sort("count_5", descending=True).limit(5))
+).filter(pl.col("review_score") == 5).group_by("customer_city").agg(pl.col("customer_city").count().alias("count_5")).
+sort("count_5", descending=True).limit(5))
 """
 
 """
@@ -90,6 +78,7 @@ result = (total_ds.select(
 ).filter(pl.col("order_status") == "delivered", pl.col("order_approved_at").is_not_null(),
          pl.col("order_delivered_customer_date").is_not_null(), pl.col("det")>0).sort("det").limit(10))
 """
+
 """
 --группы товаров которые ни разу не оплачивались картой
 products_ds = pl.read_csv("olist_products_dataset.csv", try_parse_dates = True)
@@ -105,15 +94,84 @@ result = total_ds.select(
     pl.col("card_pay_count") == 0
 )
 """
+
 """
---Среднее значение платежа по штатам (оконной функцией)
+#-- Помесячная динамика заказов:
+orders_dataset = pl.read_csv('olist_orders_dataset.csv', try_parse_dates=True)
+
+result = orders_dataset.select(
+    pl.col("order_purchase_timestamp").dt.month().alias("month"),
+    pl.col("order_id").alias("count")
+).group_by("month").agg(pl.col("count").count()).sort("month")
+sns.relplot(data = result, x = "month", y = "count", kind="line")
+plt.title("помесячная динамика заказов")
+plt.tight_layout()
+plt.savefig("monthly_dynamics_of_orders", dpi = 150)
+"""
+
+"""
+#-- Топ-10 категорий по объему продаж
+products_ds = pl.read_csv('olist_products_dataset.csv', try_parse_dates=True)
+order_items_ds = pl.read_csv('olist_order_items_dataset.csv', try_parse_dates=True)
+total_ds = products_ds.join(order_items_ds, on='product_id')
+result = total_ds.select(
+    pl.col("product_category_name"),
+    pl.col("price"),
+).group_by("product_category_name").agg(pl.col("price").alias("avenue").sum()).sort("avenue", descending=True).limit(10)
+sns.barplot(data = result, y = "product_category_name", x = "avenue")
+plt.title("топ 10 категорий по объему продаж")
+plt.tight_layout()
+plt.savefig("best_category_in_sell", dpi = 150)
+"""
+
+"""
+#--Среднее значение платежа по штатам (оконной функцией)
 sellers_ds = pl.read_csv("olist_sellers_dataset.csv", try_parse_dates=True)
 order_items_ds = pl.read_csv("olist_order_items_dataset.csv", try_parse_dates=True)
 order_payments_ds = pl.read_csv("olist_order_payments_dataset.csv", try_parse_dates=True)
 total_ds = sellers_ds.join(order_items_ds, on = "seller_id").join(order_payments_ds, on = "order_id")
 result = total_ds.select(
     pl.col("seller_state"),
-    pl.col("payment_value").mean().over(pl.col("seller_state"))
+    pl.col("payment_value").mean().over(pl.col("seller_state")).alias("avg")
 ).unique()
-print(result)
+sns.barplot(data = result, x = "seller_state", y = "avg")
+plt.title("средняя стоимость заказа по штату")
+plt.tight_layout()
+plt.savefig("avg_payments_by_state", dpi = 150)
+"""
+
+"""
+order_ds = pl.read_csv("olist_orders_dataset.csv", try_parse_dates=True)
+order_payments_ds = pl.read_csv("olist_order_payments_dataset.csv", try_parse_dates=True)
+customers_ds = pl.read_csv("olist_customers_dataset.csv", try_parse_dates=True)
+
+max_date = order_ds["order_purchase_timestamp"].max()
+
+total_ds = order_ds.join(order_payments_ds, on="order_id").join(customers_ds, on = "customer_id")
+
+result = total_ds.group_by("customer_unique_id").agg(
+    ((max_date - pl.col("order_purchase_timestamp")).dt.total_days()).max().alias("Recency"),
+    pl.col("order_id").n_unique().alias("Freq"),
+    pl.col("payment_value").mean().alias("Monetary")
+)
+result = result.with_columns(
+    (pl.col("Recency").qcut(4, labels = ["1", "2", "3", "4"])).alias("Recency_qcut"),
+    (pl.col("Freq").qcut(4, labels = ["1", "2", "3", "4"], allow_duplicates=True)).alias("Freq_qcut"),
+    (pl.col("Monetary").qcut(4, labels = ["1", "2", "3", "4"])).alias("Monetary_qcut")
+)
+
+result = result.with_columns(
+    ((pl.col("Recency_qcut").cast(pl.Int32) + pl.col("Freq_qcut").cast(pl.Int32) + pl.col("Monetary_qcut").cast(pl.Int32)).qcut(4, labels = ["low_value",
+    "medium", "High_value", "VIP"])).alias("RFM_segments")
+)
+
+count_in_segment = result.select(
+    pl.col("RFM_segments"),
+).group_by(pl.col("RFM_segments")).agg(pl.col("RFM_segments").count().alias("RFM_count"))
+
+
+sns.barplot(data = count_in_segment, x = "RFM_segments", y = "RFM_count")
+plt.title("Распределение по RFM категориям")
+plt.tight_layout()
+
 """
