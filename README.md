@@ -105,6 +105,21 @@ olist-sql-analysis/
 
 Клиенты разбиты на 4 сегмента: `low_value`, `medium`, `high_value`, `VIP`.
 
+## ML-модель (v2)
+
+**Модель:** RandomForestClassifier  
+**Accuracy:** 63.7% (+7.3% к baseline)  
+**Признаки:**
+- `price`, `freight_value`, `payment_value`, `delivery_time`
+- `product_category_name` (OneHotEncoder)
+- `seller_state` (OneHotEncoder)
+
+Модель обучена в `python_polars/ml_model.py`. Для запуска API выполните:
+\```bash
+docker build -t olist-api .
+docker run -p 8000:8000 olist-api
+\```
+
 ## Автор
 
 **Артеменко Пётр**  
@@ -114,8 +129,4 @@ olist-sql-analysis/
 ---
 
 ## Статус проекта
-
-✅ SQL: завершён (10 запросов)  
-✅ Polars: 8 запросов перенесено  
-✅ Визуализация: 3 графика  
-🔜 ML: Scikit-learn пайплайны, первая модель
+Завершен
